@@ -13,13 +13,13 @@ RUN ["./mvnw", "test"]
 
 FROM base as development
 #CMD ["./mvnw", "spring-boot:run -Dspring-boot.run.arguments='http://10.0.114.100:8080, http://10.0.44.53:8080, http://10.0.55.15:8080'"]
-CMD java -jar /app.jar http://10.0.114.100:8080 http://10.0.44.53:8080 http://10.0.55.15:8080
+CMD java -jar ./orders-service-example 0.0.1-SNAPSHOT.jar http://10.0.114.100:8080 http://10.0.44.53:8080 http://10.0.55.15:8080
 
 FROM base as staging
 #CMD ["./mvnw", "spring-boot:run -Dspring-boot.run.arguments='http://10.0.114.100:8080, http://10.0.44.53:8080, http://10.0.55.15:8080'"]
-CMD java -jar /app.jar http://10.0.114.100:8080 http://10.0.44.53:8080 http://10.0.55.15:8080
+CMD java -jar ./orders-service-example 0.0.1-SNAPSHOT.jar http://10.0.114.100:8080 http://10.0.44.53:8080 http://10.0.55.15:8080
 
 FROM base as production
 #EXPOSE 8080
 #CMD ["./mvnw", "spring-boot:run -Dspring-boot.run.arguments='http://10.0.114.100:8080, http://10.0.44.53:8080, http://10.0.55.15:8080'"]
-CMD java -jar /app.jar http://10.0.114.100:8080 http://10.0.44.53:8080 http://10.0.55.15:8080
+CMD java -jar ./orders-service-example 0.0.1-SNAPSHOT.jar http://10.0.114.100:8080 http://10.0.44.53:8080 http://10.0.55.15:8080
