@@ -10,11 +10,11 @@ on:
   workflow_dispatch:
   
 env:
-  AWS_REGION: us-east-1                 # set this to your preferred AWS region, e.g. us-west-1
-  ECR_REPOSITORY: prd-repository        # set this to your Amazon ECR repository name
-  ECS_SERVICE: prd-orders-service       # set this to your Amazon ECS service name
-  ECS_CLUSTER: prd-cluster              # set this to your Amazon ECS cluster name
-  CONTAINER_NAME: ms-orders-service     # set this to the name of the container in the containerDefinitions section of your task definition
+  AWS_REGION: us-east-1                               # set this to your preferred AWS region, e.g. us-west-1
+  ECR_REPOSITORY: prd-repository-orders-service       # set this to your Amazon ECR repository name
+  ECS_SERVICE: prd-orders-service                     # set this to your Amazon ECS service name
+  ECS_CLUSTER: prd-cluster                            # set this to your Amazon ECS cluster name
+  CONTAINER_NAME: ms-orders-service                   # set this to the name of the container in the containerDefinitions section of your task definition
 
 permissions:
   contents: read
@@ -23,7 +23,7 @@ jobs:
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
-    environment: develop
+    environment: production
 
     steps:    
     - name: Checkout
