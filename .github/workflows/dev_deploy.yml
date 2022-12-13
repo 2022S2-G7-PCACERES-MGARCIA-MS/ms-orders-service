@@ -15,6 +15,7 @@ env:
   ECS_SERVICE: dev-orders-service                      # set this to your Amazon ECS service name
   ECS_CLUSTER: dev-cluster                             # set this to your Amazon ECS cluster name
   CONTAINER_NAME: ms-orders-service                    # set this to the name of the container in the containerDefinitions section of your task definition
+  IMAGE_TAG: latest                                    # set the tag to the new image
 
 permissions:
   contents: read
@@ -48,8 +49,6 @@ jobs:
     - name: Retag image
       id: retag-img 
       uses: abronin/ecr-retag-action@v1
-      env:
-        IMAGE_TAG: ${{env.CONTAINER_NAME}}-latest
       with:
           repository: ${{ env.ECR_REPOSITORY }}
           tag: ${{ env.IMAGE_TAG }}
@@ -59,8 +58,7 @@ jobs:
       id: build-image
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        # IMAGE_TAG: ${{ github.sha }}
-        IMAGE_TAG: ${{env.CONTAINER_NAME}}-latest
+        IMAGE_TAG: ${{env.IMAGE_TAG}}
       run: |
         # Build a docker container and
         # push it to ECR so that it can
