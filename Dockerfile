@@ -22,7 +22,7 @@ CMD java -jar target/orders-service-example-0.0.1-SNAPSHOT.jar http://172.17.0.4
 FROM base as development
 RUN  ./mvnw package
 # CMD java -jar target/orders-service-example-0.0.1-SNAPSHOT.jar http://10.0.103.109:8080 http://10.0.5.185:8080 http://10.0.125.150:8080
-CMD java -jar target/orders-service-example-0.0.1-SNAPSHOT.jar http://10.0.80.60:8080 http://10.0.33.220:8080 http://10.0.32.192.150:8080
+CMD java -jar target/orders-service-example-0.0.1-SNAPSHOT.jar http://10.0.80.60:8080 http://10.0.33.220:8080 http://10.0.32.192:8080
 
 FROM base as staging
 RUN  ./mvnw package
