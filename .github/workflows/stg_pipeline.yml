@@ -1,0 +1,134 @@
+name: CI/CD - Staging
+
+on:   
+  push:
+    branches: [ "staging" ]
+  pull_request:
+    branches: [ "staging" ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+  
+env:
+  AWS_REGION: us-east-1                                # set this to your preferred AWS region, e.g. us-west-1
+  ECR_REPOSITORY: stg-repository-orders-service        # set this to your Amazon ECR repository name
+  ECS_SERVICE: stg-orders-service                      # set this to your Amazon ECS service name
+  ECS_CLUSTER: stg-cluster                             # set this to your Amazon ECS cluster name
+  CONTAINER_NAME: ms-orders-service                    # set this to the name of the container in the containerDefinitions section of your task definition
+  SONAR_PROJECTKEY: 2022S2-G7-PCACERES-MGARCIA-MS_ms-products-service
+  ENVIRONMENT_NAME: staging
+  IMAGE_TAG: latest                                    # set the tag to the new image
+ 
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and Analyze Code
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+      - name: Set up JDK 11
+        uses: actions/setup-java@v1
+        with:
+          java-version: 11
+      - name: Cache SonarCloud packages
+        uses: actions/cache@v1
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+      - name: Cache Maven packages
+        uses: actions/cache@v1
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+      - name: Build and analyze
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=${{ env.SONAR_PROJECTKEY }}    
+  deploy:
+    name: Build and Deploy Image
+    runs-on: ubuntu-latest
+    environment: staging
+    needs: build
+    if: github.event_name == 'push'
+    steps:    
+    - name: Checkout
+      uses: actions/checkout@v3
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+        aws-region: ${{ env.AWS_REGION }}
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+    - name: GetDate
+      id: date
+      run: echo "date=$(date +'%Y%m%d%H%M%S')" >> $GITHUB_ENV
+    # - name: Retag image
+    #   id: retag-img 
+    #   uses: abronin/ecr-retag-action@v1
+    #   with:
+    #       repository: ${{ env.ECR_REPOSITORY }}
+    #       tag: ${{ env.IMAGE_TAG }}
+    #       new-tags: ${{ env.IMAGE_TAG }}-${{ env.date }}
+    - name: Build, tag, and push image to Amazon ECR
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ env.IMAGE_TAG }}
+      run: |
+        # Build a docker container and push it to ECR so that it can be deployed to ECS.
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG --target ${{ env.ENVIRONMENT_NAME }} .
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+    - name: Get task definition
+      run: |
+        aws ecs describe-task-definition --task-definition dev-${{ env.CONTAINER_NAME }}-td --output json --query taskDefinition > task-definition.json
+    - name: Fill in the new image ID in the Amazon ECS task definition
+      id: task-def
+      uses: aws-actions/amazon-ecs-render-task-definition@v1
+      with:
+        task-definition: task-definition.json
+        container-name: ${{ env.CONTAINER_NAME }}
+        image: ${{ steps.build-image.outputs.image }}
+    - name: Deploy Amazon ECS task definition
+      uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+      with:
+        task-definition: ${{ steps.task-def.outputs.task-definition }}
+        service: ${{ env.ECS_SERVICE }}
+        cluster: ${{ env.ECS_CLUSTER }}
+        wait-for-service-stability: true
+  test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    environment: develop
+    needs: deploy
+    steps:
+      - name: Install Node
+        uses: actions/setup-node@v1
+        with:
+          node-version: "12.x"
+      - name: Install newman
+        run: |
+          npm install -g newman
+          npm install -g newman-reporter-htmlextra
+      - name: Make Directory for results
+        run: mkdir -p Test_Results
+      - name: Run POSTMAN collection
+        run: |
+          newman run "https://api.postman.com/collections/${{ secrets.POSTMAN_COLLECTION_ID }}?apikey=${{ secrets.POSTMAN_API_KEY }}" -e "https://api.postman.com/environments/${{ secrets.POSTMAN_ENVIRONMENT_ID }}?apikey=${{ secrets.POSTMAN_API_KEY }}" -r htmlextra --reporter-htmlextra-export Test_Results/htmlreport.html --reporter-htmlextra-darkTheme > Test_Results/runreport.html
+      - name: Output the run Details
+        uses: actions/upload-artifact@v2
+        with:
+          name: Newman Run Dashboard
+          path: Test_Results
