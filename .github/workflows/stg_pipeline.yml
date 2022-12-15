@@ -8,6 +8,7 @@ on:
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
+    branches: [ "staging" ]
   
 env:
   AWS_REGION: us-east-1                                # set this to your preferred AWS region, e.g. us-west-1
@@ -20,7 +21,9 @@ env:
   IMAGE_TAG: latest                                    # set the tag to the new image
  
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
+
 
 jobs:
   build:
@@ -111,7 +114,7 @@ jobs:
   test:
     name: Integration Tests
     runs-on: ubuntu-latest
-    environment: develop
+    environment: staging
     needs: deploy
     steps:
       - name: Install Node
@@ -132,3 +135,17 @@ jobs:
         with:
           name: Newman Run Dashboard
           path: Test_Results
+  propagate:
+    name: Propagate Changes
+    runs-on: ubuntu-latest
+    environment: staging
+    needs: test
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v4.2.3
+        with:
+          token: ${{ secrets.GIT_HUB_WORKFLOW_PERSONAL_ACCESS_TOKEN }}
+          base: staging
+          branch: main
