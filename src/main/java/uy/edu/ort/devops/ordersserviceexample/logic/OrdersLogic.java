@@ -38,12 +38,16 @@ public class OrdersLogic {
 
     public OrderStatus buy(List<String> products) {
         StringBuilder errorBuilder = new StringBuilder();
+
         logger.info("Creating order.");
         logger.info("Checking products.");
 
         boolean hasError = false;
+
         for (String productId : products) {
+
             Product product = getProduct(productId);
+
             if (product != null) {
                 if (product.getStock() == 0) {
                     if (hasError) {
@@ -59,10 +63,10 @@ public class OrdersLogic {
                 hasError = true;
                 errorBuilder.append("Missing: ").append(productId).append(".");
             }
-
         }
 
         String orderId = java.util.UUID.randomUUID().toString();
+
         if (!hasError) {
             logger.info("Products ok.");
             PaymentStatus paymentStatus = pay(orderId);
@@ -81,11 +85,12 @@ public class OrdersLogic {
         }
     }
 
-    private Product getProduct(String id) {
+    private Product getProduct(String productId) {
         try {
             logger.info("Invoking products service.");
-            return restTemplate.getForObject(PRODUCTS_SERVICE_URL + "/products/" + id, Product.class);
-        } catch (HttpClientErrorException ex)   {
+            return restTemplate.getForObject(PRODUCTS_SERVICE_URL + "/products/" + productId, Product.class);
+        } catch (HttpClientErrorException ex) {
+            logger.info("Error in products: " + ex.getMessage());
             return null;
         }
     }
@@ -94,13 +99,18 @@ public class OrdersLogic {
         try {
             logger.info("Invoking payments service.");
             return restTemplate.postForObject(PAYMENTS_SERVICE_URL + "/payments/" + orderId, null, PaymentStatus.class);
-        } catch (HttpClientErrorException ex)   {
+        } catch (HttpClientErrorException ex) {
+            logger.info("Error in payments: " + ex.getMessage());
             return null;
         }
     }
 
     private void addShipping(String orderId) {
-        logger.info("Invoking shipping service.");
-        restTemplate.postForEntity(SHIPPING_SERVICE_URL + "/shipping/" + orderId, null, String.class);
+        try {
+            logger.info("Invoking shipping service.");
+            restTemplate.postForEntity(SHIPPING_SERVICE_URL + "/shipping/" + orderId, null, String.class);
+        } catch (HttpClientErrorException ex) {
+            logger.info("Error in product: " + ex.getMessage());
+        }
     }
 }
